@@ -26,4 +26,4 @@ The goal of this project is to simulate **self-driving** by using behavior cloni
 * OpenCV
 
 # Completed Product
-[Completed Run](https://www.youtube.com/watch?v=pI2P4pk9mdk)
+[![Completed Run](https://github.com/jayakasadev/Behavioral-Cloning/blob/master/thumb.jpg)](https://www.youtube.com/watch?v=pI2P4pk9mdk)
