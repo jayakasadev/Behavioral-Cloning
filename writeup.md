@@ -82,6 +82,7 @@ When I ran the model as is, I did not perform that well with my **validation-los
 So, I decided to start by adding an activation function. I decided to go with **RELU**, since it is generally a good starting place in terms of activation functions. Validation error dropped, but it did not drop enough to be useful or signal that the model was performing well. 
 
 [![Bias vs Invariance](http://www.kdnuggets.com/wp-content/uploads/bias-vs-variance-tradeoff.png)]()
+
 I had a serious issue with variance. The loss on the training set was dropping steadily, but the loss of the validation-set was ever increasing. In other words, I was **underfitting**, badly. 
 
 So, my next step was to normalize the images. I started with: Lambda(lambda x: (x / 255) - 0.5)). This was the function provided by **Udacity**. However, I noticed that my other classmates had found better success by using Lambda(lambda x: (x / 127.5 - 1.0)). So, I followed their lead and used the function instead. It improved performance, but I was still underfitting. 
