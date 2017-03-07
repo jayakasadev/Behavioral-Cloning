@@ -130,6 +130,7 @@ Before this, I tried to record the car running with on a model.h5 file with a va
 
 **The vehicle is able to drive autonomously around the track without leaving the road or having to recover.**
 
+# Click the link before to see how the car performs:
 [![Completed Run](https://github.com/jayakasadev/Behavioral-Cloning/blob/master/thumb.jpg)](https://www.youtube.com/watch?v=pI2P4pk9mdk)
 
 Out of curiousity, I ran the model for another 10 epochs and got a final validation-loss of **0.0269**, and saved the model in **model2.h5**.
