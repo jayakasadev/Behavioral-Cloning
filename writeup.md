@@ -35,9 +35,16 @@ Collected data:
 
 All the data was stored in the data directory.
 
-###Model Architecture and Training Strategy
+#### Data Preprocessing:
+There are 3 images for any given steering angle. But, the steering angle from each angle is very different. There is an offset to add or subtract based on the camera(add for left, subtract for right). This presents itself as another hyperparameter to play around with during training.
 
-####1. Designing the Model
+To increase the size of the dataset, I decided to create fliped versions of all images and negated their steering. This doubles the size of the dataset, and proved really useful in making the model generalize better.
+
+I also cropped all images to make the model focus only on the road and not the sky. I got the idea for it from the **Udacity** lectures and the Nvidia paper(shown below).
+
+### Model Architecture and Training Strategy
+
+#### Designing the Model
 At first, I tried to base my model on the model used by the [GoogLenet Team](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/43022.pdf). Their model claimed to speedup training by 3-10 times. They did this by makign use of **Inception modules**.  
 Unfortunately, their model was 22 layers deep. I was able to build the model, but it was far too big to run on a single 4GB GPU on AWS. I did not realize this right away. It took a few days of playing around and experimenting to figure out the cause of the problem. But, eventually, I realized that there were far too many layers and far too many variables to train with a single GPU.
 
@@ -45,71 +52,81 @@ So, I decided to base my model on the model used by [Nvidia](https://images.nvid
 
 I later realized that I may still be able to use the GoogLenet structure I created with a generator. But, it was far too complicated a structure and would take too long to setup and run, and I had already gotten the **Nvidia** structure working.
 
+#### Nvidia Model Structure:
+[![Model Structure](https://devblogs.nvidia.com/parallelforall/wp-content/uploads/2016/08/cnn-architecture-768x1095.png)]()
 
+The Nvidia Model in Keras: 
+* Convolution2D(24, 5, 5, border_mode='same', subsample=(2, 2))
+* Convolution2D(36, 5, 5, border_mode='same', subsample=(2, 2))
+* Convolution2D(48, 5, 5, border_mode='same', subsample=(2, 2))
+* Convolution2D(64, 3, 3, border_mode='same', subsample=(2, 2))
+* Convolution2D(64, 3, 3, border_mode='same', subsample=(2, 2))
+* Flatten()
+* Dense(1000)          
+* Dense(100)
+* Dense(50)
+* Dense(10)
+* Dense(1)
 
-####2. Model Structure:
-[![Model Structure](https://devblogs.nvidia.com/parallelforall/wp-content/uploads/2016/08/cnn-architecture-768x1095.png)]
+This model makes use of **5 Convolutions** with **5x5 filters** with **strides of 2** for the first 5 steps. Afterwards, you have **5 fully-connected layers**, ending with a single output for steering.
 
-####3. Model parameter tuning
+#### Optimization and Cost Function:
+I used **Adam Optimizer** and **Mean-Squared Error**.   
 
-The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 25).
+Check out this [Link](http://sebastianruder.com/optimizing-gradient-descent/index.html#adam). It gives a really good comparison of optimization functions and why Adam is a good choice. I used the default learning rate of **.001**.
 
-####4. Appropriate training data
+Mean-Squared Error is a very standard cost function when working with numerical values. Especially when you are trying to predict them. As the output for this model was not categorical, it made sense to use this function.
 
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road ... 
+#### Experimentation:
+When I ran the model as is, I did not perform that well with my **validation-loss**. It was, unfortunately, very high. 
+So, I decided to start by adding an activation function. I decided to go with **RELU**, since it is generally a good starting place in terms of activation functions. Validation error dropped, but it did not drop enough to be useful or signal that the model was performing well. 
 
-For details about how I created the training data, see the next section. 
+[![Bias vs Invariance](http://www.kdnuggets.com/wp-content/uploads/bias-vs-variance-tradeoff.png)]()
+I had a serious issue with variance. The loss on the training set was dropping steadily, but the loss of the validation-set was ever increasing. In other words, I was **underfitting**, badly. 
 
-###Model Architecture and Training Strategy
+So, my next step was to normalize the images. I started with: Lambda(lambda x: (x / 255) - 0.5)). This was the function provided by **Udacity**. However, I noticed that my other classmates had found better success by using Lambda(lambda x: (x / 127.5 - 1.0)). So, I followed their lead and used the function instead. It improved performance, but I was still underfitting. 
 
-####1. Solution Design Approach
+It was at this time, that I decided to go over my code to see if there were any bugs I had inadvertantly overlooked. And then, I found them.
 
-The overall strategy for deriving a model architecture was to ...
+###### Major bugs:
+* My generator was only putting one image in the validation set. Which explains why my validation-loss was so high and climbing. 
+* I had been training my model on images that were cropped in the generator that provided the training-set batches. So, when I tried to make predictions with full-size images, the program would crash. 
 
-My first step was to use a convolution neural network model similar to the ... I thought this model might be appropriate because ...
+###### Solution:
+* The first problem was easily fixed by fixing the bug which only added one image. 
+* I decided to remove the cropping function from the generator. Instead, I added a cropping layer to the model. I placed it right above the Normalization layer. This way, I was not normalizing values that I was getting rid of anyways. 
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
+After this issue was solved, my model began to perform a lot better. But this time, I had a new problem. I was in grave danger of over-fitting. 
+The solution to this was very simple, add a **Dropout Layer** after each Convolutional Layer.
 
-To combat the overfitting, I modified the model so that ...
+From this point forward, I was experimenting with dropout percentages and combinations of percentages. I started with 0.5. But I slowly worked my way down to 0.3 and 0.4 for my different Dropout Layers.
 
-Then I ... 
+The last hyperparameter to play with was the steering angle offset. I started with 0.2. But after changing it to 0.21, I noticed that steering was a lot better, so I just stopped there. 
 
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
+#### Final Model Structure: 
+* Cropping2D(cropping=((50,20), (0,0)), input_shape=(160,320,3))
+* Lambda(lambda x: (x / 127.5 - 1.0))
+* Convolution2D(24, 5, 5, border_mode='same', activation = 'relu', subsample=(2, 2))
+* Dropout(0.4)
+* Convolution2D(36, 5, 5, border_mode='same', activation = 'relu', subsample=(2, 2))
+* Dropout(0.3)
+* Convolution2D(48, 5, 5, border_mode='same', activation = 'relu', subsample=(2, 2))
+* Dropout(0.3)
+* Convolution2D(64, 3, 3, border_mode='same', activation = 'relu', subsample=(2, 2))
+* Dropout(0.3)
+* Convolution2D(64, 3, 3, border_mode='same', activation = 'relu', subsample=(2, 2))
+* Dropout(0.3)
+* Flatten()
+* Dense(1000)          
+* Dense(100)
+* Dense(50)
+* Dense(10)
+* Dense(1)
 
-At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
+#### Conclusion:
+The saved model that I used to record autonomous driving is stored in **model.h5**. The **validation-loss** for this model was **0.0287**. 
+Before this, I tried to record the car running with on a model.h5 file with a validation-loss of **0.0339**. The car drove well, but it had to recover back to the center of the road twice on curves. So, I re-ran the model for another 10 epochs and got my final validation-loss. This time, the car drove without any issues or recovery. That **.5%** made a huge difference.
 
-####2. Final Model Architecture
+**The vehicle is able to drive autonomously around the track without leaving the road or having to recover.**
 
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
-
-Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
-
-![alt text][image1]
-
-####3. Creation of the Training Set & Training Process
-
-To capture good driving behavior, I first recorded two laps on track one using center lane driving. Here is an example image of center lane driving:
-
-![alt text][image2]
-
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
-
-![alt text][image3]
-![alt text][image4]
-![alt text][image5]
-
-Then I repeated this process on track two in order to get more data points.
-
-To augment the data sat, I also flipped images and angles thinking that this would ... For example, here is an image that has then been flipped:
-
-![alt text][image6]
-![alt text][image7]
-
-Etc ....
-
-After the collection process, I had X number of data points. I then preprocessed this data by ...
-
-
-I finally randomly shuffled the data set and put Y% of the data into a validation set. 
-
-I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+Out of curiousity, I ran the model for another 10 epochs and got a final validation-loss of **0.0269**, and saved the model in **model2.h5**.
