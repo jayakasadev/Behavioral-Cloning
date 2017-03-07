@@ -27,3 +27,7 @@ The goal of this project is to simulate **self-driving** by using behavior cloni
 
 # Completed Product
 [![Completed Run](https://github.com/jayakasadev/Behavioral-Cloning/blob/master/thumb.jpg)](https://www.youtube.com/watch?v=pI2P4pk9mdk)
+
+
+# Checkout: 
+Writeup.md for more details
