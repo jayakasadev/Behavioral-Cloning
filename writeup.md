@@ -1,4 +1,4 @@
-#**Behavioral Cloning** 
+# **Behavioral Cloning** 
 
 The goals / steps of this project are the following:
 * Use the simulator provided by Udacity to collect data of good driving behavior
